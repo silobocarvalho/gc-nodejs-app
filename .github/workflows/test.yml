@@ -1,4 +1,4 @@
-name: Run Tests
+name: Node.js CI
 
 on:
   push:
@@ -12,23 +12,32 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      mongo:
-        image: mongo:latest
-        ports:
-          - 27017:27017
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Check out code
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
 
-      - name: Install dependencies
-        run: npm install
+    - name: Install dependencies
+      run: npm install
 
-      - name: Run tests
-        run: npm test
+    - name: Start Docker Compose
+      run: docker-compose up -d
+
+    - name: Wait for services to be ready
+      run: |
+        for i in {1..30}; do
+          nc -z localhost 3000 && echo "Node.js is ready!" && exit 0
+          sleep 2
+        done
+        echo "Services failed to start in time" && exit 1
+
+    - name: Run tests
+      run: npm test
+
+    - name: Stop Docker Compose
+      if: always()
+      run: docker-compose down
