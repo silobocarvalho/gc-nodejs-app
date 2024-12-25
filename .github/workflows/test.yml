@@ -1,0 +1,56 @@
+name: Node.js CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Start Docker Compose
+      run: docker-compose up -d
+
+    - name: Wait for services to be ready
+      run: |
+        for i in {1..60}; do
+          if nc -z localhost 3000; then
+            echo "Server is ready!"
+            exit 0
+          fi
+          echo "Waiting for server..."
+          sleep 2
+        done
+        echo "Server failed to start in time"
+        exit 1
+
+    - name: Check Docker logs
+      run: docker-compose logs
+
+    - name: Run tests
+      run: npm test
+
+    - name: Stop Docker Compose
+      if: always()
+      run: docker-compose down
